@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <meta name="description" content="Wi-Fi Runner — A fun browser game by Md. Sahabul. Jump over firewalls, 404 errors, lag spikes and dead pixels!">
+    <meta name="author" content="Md. Sahabul">
+    <meta name="theme-color" content="#0a1122">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="📡 Wi-Fi Runner">
+    <meta property="og:description" content="Jump over firewalls, 404 errors & lag spikes. A fun browser game by Md. Sahabul.">
+    <meta property="og:type" content="website">
+
+    <title>📡 Wi-Fi Runner — Md. Sahabul</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Ambient orbs -->
+    <div class="orb orb-1" aria-hidden="true"></div>
+    <div class="orb orb-2" aria-hidden="true"></div>
+
+    <div class="page-wrap">
+
+        <!-- ── Header ── -->
+        <header class="site-header">
+            <h1>📡 Wi-Fi <span>Runner</span></h1>
+            <p>Jump over firewalls, 404s &amp; lag spikes to survive the internet!</p>
+        </header>
+
+        <!-- ── Game ── -->
+        <main class="game-wrap" role="main">
+            <div class="game-header">
+                <div class="game-label" aria-label="Game status: live">
+                    <div class="game-label-dot" aria-hidden="true"></div>
+                    Live Game
+                </div>
+                <div class="game-stats" aria-live="polite" aria-atomic="true">
+                    <div class="stat">
+                        <div class="stat-label">Score</div>
+                        <div class="stat-val" id="scoreDisplay">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Best</div>
+                        <div class="stat-val hi" id="hiDisplay">0</div>
+                        <span class="saved-badge" id="savedBadge" aria-live="polite">💾 saved</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-canvas-wrap">
+                <div class="milestone-toast" id="milestoneToast" role="status" aria-live="polite"></div>
+                <canvas id="gameCanvas" role="img" aria-label="Wi-Fi Runner game canvas. Press Space or tap to jump."></canvas>
+            </div>
+
+            <div class="game-footer-hints" aria-label="Game controls">
+                <span><span class="hint-key">SPACE</span> or <span class="hint-key">↑</span> to jump</span>
+                <span class="hint-sep">·</span>
+                <span><span class="hint-key">TAP</span> on mobile</span>
+                <span class="hint-sep">·</span>
+                <span>Double-jump allowed!</span>
+            </div>
+        </main>
+
+        <div class="spacer" aria-hidden="true"></div>
+
+    </div><!-- /.page-wrap -->
+
+    <!-- ══════════════════════════════════════
+         SITE FOOTER
+    ══════════════════════════════════════ -->
+    <footer class="site-footer">
+        <p>
+            &copy; 2026 <strong>Md. Sahabul</strong>. All rights reserved.
+            <span class="footer-sep">·</span>
+            Designed &amp; developed by <strong>Md. Sahabul</strong>
+            <span class="footer-sep">—</span>
+            Portfolio &amp; Design Studio
+            <span class="footer-sep">·</span>
+            <a href="https://github.com/mdsahabul" target="_blank" rel="noopener noreferrer">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482
+                             0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.154-1.11-1.462-1.11-1.462
+                             -.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832
+                             .092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683
+                             -.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836
+                             a9.578 9.578 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1
+                             2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678
+                             1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12
+                             22 6.477 17.523 2 12 2z"/>
+                </svg>
+                Github
+            </a>
+        </p>
+    </footer>
+
+    <script>
+    /* ============================================================
+       Wi-Fi Runner — Game Script
+       © 2026 Md. Sahabul  |  github.com/mdsahabul
+       ============================================================ */
+    (function () {
+        'use strict';
+
+        /* ── DOM refs ── */
+        var canvas       = document.getElementById('gameCanvas');
+        var ctx          = canvas.getContext('2d');
+        var scoreEl      = document.getElementById('scoreDisplay');
+        var hiEl         = document.getElementById('hiDisplay');
+        var toastEl      = document.getElementById('milestoneToast');
+        var savedBadgeEl = document.getElementById('savedBadge');
+
+        /* ────────────────────────────────────────
+           PERSISTENT HIGH SCORE  (localStorage)
+        ──────────────────────────────────────── */
+        var LS_KEY = 'wifiRunner_hiScore';
+
+        function loadHiScore() {
+            try {
+                var v = localStorage.getItem(LS_KEY);
+                return v ? parseInt(v, 10) : 0;
+            } catch (e) { return 0; }
+        }
+
+        function saveHiScore(val) {
+            try {
+                localStorage.setItem(LS_KEY, String(val));
+                savedBadgeEl.classList.add('show');
+                setTimeout(function () { savedBadgeEl.classList.remove('show'); }, 2200);
+            } catch (e) { /* storage unavailable — silently ignore */ }
+        }
+
+        /* ────────────────────────────────────────
+           CANVAS SIZING  (HiDPI-aware)
+        ──────────────────────────────────────── */
+        var W, H, GY;
+
+        function resize() {
+            var wrap = canvas.parentElement;
+            var cssW = wrap.clientWidth;
+            var cssH = Math.min(240, Math.max(160, Math.round(cssW * 0.33)));
+            var dpr  = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width        = Math.round(cssW * dpr);
+            canvas.height       = Math.round(cssH * dpr);
+            canvas.style.height = cssH + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            W  = cssW;
+            H  = cssH;
+            GY = H - 52;
+        }
+
+        resize();
+        window.addEventListener('resize', function () {
+            resize();
+            if (state === 'idle') { drawBG(); drawGround(); drawPlayer(false); drawIdleOverlay(); }
+        });
+
+        /* ────────────────────────────────────────
+           GAME CONSTANTS
+        ──────────────────────────────────────── */
+        var GRAVITY    = 0.70;
+        var JUMP_FORCE = -13.2;
+        var BASE_SPD   = 4.0;
+        var PX         = 80;   // player fixed X
+        var PW         = 34;   // player width
+        var PH         = 28;   // player height
+
+        /* ────────────────────────────────────────
+           GAME STATE
+        ──────────────────────────────────────── */
+        var state    = 'idle'; // 'idle' | 'playing' | 'dead'
+        var score    = 0;
+        var hiScore  = loadHiScore();
+        var speed    = BASE_SPD;
+        var frame    = 0;
+        var bgScroll = 0;
+
+        var pl       = { y: 0, vy: 0, jumps: 0 };
+        var obs      = [];
+        var sparks   = [];
+        var floats   = [];
+        var obsTimer = 0;
+        var obsInt   = 90;
+        var shownMS  = {};
+        var deathMsg = '';
+        var newHi    = false;
+
+        /* reflect persisted best immediately */
+        hiEl.textContent = hiScore;
+
+        /* ── Content ── */
+        var DEATHS = [
+            'CONNECTION TIMED OUT',
+            '404: JUMP NOT FOUND',
+            'ERR_SKILL_NOT_FOUND',
+            'PACKET LOST IN TRANSIT',
+            'DNS_PROBE_FINISHED_NXDOMAIN',
+            'FATAL: NO REFLEX.EXE',
+            '503 REFLEXES UNAVAILABLE',
+            'YOUR ROUTER IS JUDGING YOU',
+            'BUFFERING YOUR BRAIN\u2026',
+            'PING: 9999ms  (skill issue)',
+            'ERR_TOO_SLOW_TO_REACT',
+            'HTTP 418: I\'M A TEAPOT?!',
+        ];
+
+        var MILESTONES = {
+            100:  '\uD83C\uDF89  Not bad for someone offline!',
+            350:  '\uD83D\uDD25  Router is warming up!',
+            700:  '\u26A1  Speed boost unlocked!',
+            1100: '\uD83D\uDC51  YOU ARE THE ROUTER NOW',
+            1700: '\uD83C\uDF10  Forget Wi-Fi \u2014 you ARE Wi-Fi',
+            2600: '\uD83D\uDE80  NASA called. They need you.',
+            4000: '\uD83E\uDD16  Are you even human?',
+        };
+
+        /* ── Toast ── */
+        var toastTmr = null;
+        function showToast(msg) {
+            if (toastTmr) clearTimeout(toastTmr);
+            toastEl.textContent = msg;
+            toastEl.classList.add('show');
+            toastTmr = setTimeout(function () { toastEl.classList.remove('show'); }, 3000);
+        }
+
+        /* ════════════════════════════════════════
+           DRAWING HELPERS
+        ════════════════════════════════════════ */
+
+        /* rounded rect path */
+        function rr(x, y, w, h, r) {
+            r = r === undefined ? 4 : r;
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.arcTo(x + w, y,     x + w, y + r,     r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+            ctx.lineTo(x + r, y + h);
+            ctx.arcTo(x,     y + h, x, y + h - r,     r);
+            ctx.lineTo(x,     y + r);
+            ctx.arcTo(x,     y,     x + r, y,          r);
+            ctx.closePath();
+        }
+
+        /* ── Parallax city background ── */
+        function drawBG() {
+            ctx.fillStyle = 'rgba(10,17,34,0.97)';
+            ctx.fillRect(0, 0, W, H);
+
+            /* far buildings */
+            var farH = [50, 38, 65, 42, 58, 34, 60, 48, 44, 70];
+            for (var i = 0; i < 10; i++) {
+                var bh = farH[i], bw = 26;
+                var bx = ((i * 95 - bgScroll * 0.4) % (W + 40) + W + 40) % (W + 40) - 10;
+                ctx.fillStyle = 'rgba(28,50,90,0.28)';
+                ctx.fillRect(bx, GY - bh, bw, bh);
+                ctx.strokeStyle = 'rgba(96,165,250,0.15)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(bx + bw / 2, GY - bh);
+                ctx.lineTo(bx + bw / 2, GY - bh - 8);
+                ctx.stroke();
+            }
+
+            /* near buildings with windows */
+            var nearH = [38, 55, 40, 50, 30, 45, 62];
+            for (var j = 0; j < 7; j++) {
+                var nh = nearH[j], nw = 20;
+                var nx = ((j * 130 + 40 - bgScroll * 0.85) % (W + 60) + W + 60) % (W + 60) - 10;
+                ctx.fillStyle = 'rgba(15,30,60,0.55)';
+                ctx.fillRect(nx, GY - nh, nw, nh);
+                ctx.fillStyle = 'rgba(96,165,250,0.12)';
+                for (var wr = 5; wr < nh - 4; wr += 9) {
+                    ctx.fillRect(nx + 3,  GY - nh + wr, 5, 4);
+                    ctx.fillRect(nx + 12, GY - nh + wr, 5, 4);
+                }
+            }
+
+            /* twinkling stars */
+            var STARS = [[12,18],[55,28],[130,12],[210,30],[295,20],[380,35],[460,16],[530,25]];
+            STARS.forEach(function (s, k) {
+                var sx    = ((s[0] - bgScroll * 0.08) % (W + 10) + W + 10) % (W + 10);
+                var alpha = 0.3 + 0.4 * Math.abs(Math.sin(frame * 0.02 + k));
+                ctx.fillStyle = 'rgba(200,220,255,' + alpha + ')';
+                ctx.fillRect(sx, s[1], 1.5, 1.5);
+            });
+        }
+
+        /* ── Ground line ── */
+        function drawGround() {
+            ctx.save();
+            ctx.shadowColor = '#60a5fa';
+            ctx.shadowBlur  = 8;
+            ctx.strokeStyle = 'rgba(96,165,250,0.55)';
+            ctx.lineWidth   = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, GY + 1);
+            ctx.lineTo(W, GY + 1);
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.save();
+            ctx.setLineDash([16, 12]);
+            ctx.lineDashOffset = -(frame * speed * 0.42) % 28;
+            ctx.strokeStyle    = 'rgba(96,165,250,0.11)';
+            ctx.lineWidth      = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(0, GY + 13);
+            ctx.lineTo(W, GY + 13);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        /* ── Player: cute WiFi router character ── */
+        function drawPlayer(dead) {
+            var squish = pl.vy < -3 ? 0.86 : (pl.vy > 4 ? 1.1 : 1);
+            var animH  = PH * squish;
+            var animW  = PW * (2 - squish);
+            var ax     = PX - animW / 2;
+            var ay     = pl.y - animH;
+
+            ctx.save();
+            if (dead) ctx.globalAlpha = 0.35;
+
+            /* body glow */
+            ctx.shadowColor = dead ? '#ef4444' : '#3b82f6';
+            ctx.shadowBlur  = 14;
+
+            /* body gradient */
+            var bg = ctx.createLinearGradient(ax, ay, ax, ay + animH);
+            bg.addColorStop(0, dead ? '#4c0519' : '#1e3a5f');
+            bg.addColorStop(1, dead ? '#7f1d1d' : '#1e40af');
+            rr(ax, ay, animW, animH, 6);
+            ctx.fillStyle   = bg;
+            ctx.fill();
+            ctx.strokeStyle = dead ? '#ef4444' : '#60a5fa';
+            ctx.lineWidth   = 1.8;
+            ctx.stroke();
+            ctx.shadowBlur  = 0;
+
+            /* antennas */
+            ctx.lineWidth   = 2;
+            ctx.strokeStyle = '#93c5fd';
+            ctx.beginPath(); ctx.moveTo(PX - 9, ay); ctx.lineTo(PX - 9, ay - 11); ctx.stroke();
+            ctx.beginPath(); ctx.arc(PX - 9, ay - 14, 3, 0, 6.28);
+            ctx.fillStyle = dead ? '#f87171' : '#60a5fa';
+            ctx.fill();
+
+            ctx.beginPath(); ctx.moveTo(PX + 9, ay); ctx.lineTo(PX + 9, ay - 15); ctx.stroke();
+            ctx.beginPath(); ctx.arc(PX + 9, ay - 18, 3, 0, 6.28);
+            ctx.fillStyle = dead ? '#f87171' : '#93c5fd';
+            ctx.fill();
+
+            /* eye whites */
+            var ey = ay + animH * 0.36;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(PX - 8, ey, 4.5, 0, 6.28);
+            ctx.arc(PX + 8, ey, 4.5, 0, 6.28);
+            ctx.fill();
+
+            if (dead) {
+                /* X eyes */
+                [PX - 8, PX + 8].forEach(function (ex) {
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.lineWidth   = 1.8;
+                    ctx.beginPath();
+                    ctx.moveTo(ex - 3, ey - 3); ctx.lineTo(ex + 3, ey + 3);
+                    ctx.moveTo(ex + 3, ey - 3); ctx.lineTo(ex - 3, ey + 3);
+                    ctx.stroke();
+                });
+            } else {
+                /* pupils + glints */
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(PX - 7, ey + 1, 2.5, 0, 6.28);
+                ctx.arc(PX + 9, ey + 1, 2.5, 0, 6.28);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.beginPath();
+                ctx.arc(PX - 6,  ey - 0.5, 1, 0, 6.28);
+                ctx.arc(PX + 10, ey - 0.5, 1, 0, 6.28);
+                ctx.fill();
+            }
+
+            /* mouth */
+            ctx.strokeStyle = dead ? '#f87171' : '#93c5fd';
+            ctx.lineWidth   = 1.5;
+            ctx.beginPath();
+            var mcy = ay + animH * (dead ? 0.7 : 0.66);
+            if (dead) { ctx.arc(PX, mcy + 4, 5, Math.PI, 0); }
+            else       { ctx.arc(PX, mcy,     5, 0, Math.PI); }
+            ctx.stroke();
+
+            /* mini wifi signal bars on body */
+            if (!dead && frame % 22 < 13) {
+                var bx = PX - 4, by = ay + animH * 0.78;
+                ctx.fillStyle = '#22c55e';              ctx.fillRect(bx,     by - 3, 3, 3);
+                ctx.fillStyle = '#60a5fa';              ctx.fillRect(bx + 4, by - 5, 3, 5);
+                ctx.fillStyle = 'rgba(96,165,250,0.4)'; ctx.fillRect(bx + 8, by - 7, 3, 7);
+            }
+
+            ctx.restore();
+        }
+
+        /* ── Obstacle rendering ── */
+        function drawObs(o) {
+            ctx.save();
+
+            if (o.type === 'firewall') {
+                ctx.shadowColor = '#ef4444';
+                ctx.shadowBlur  = 12;
+                var g = ctx.createLinearGradient(o.x, o.y, o.x, o.y + o.h);
+                g.addColorStop(0, '#7f1d1d');
+                g.addColorStop(1, '#450a0a');
+                rr(o.x, o.y, o.w, o.h, 4);
+                ctx.fillStyle   = g;   ctx.fill();
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.8; ctx.stroke();
+                /* brick lines */
+                ctx.strokeStyle = 'rgba(239,68,68,0.22)'; ctx.lineWidth = 0.8;
+                for (var r2 = o.y + 8; r2 < o.y + o.h; r2 += 9) {
+                    ctx.beginPath();
+                    ctx.moveTo(o.x + 2, r2);
+                    ctx.lineTo(o.x + o.w - 2, r2);
+                    ctx.stroke();
+                }
+                ctx.fillStyle = '#fca5a5';
+                ctx.font      = 'bold 7px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('FIRE', o.x + o.w / 2, o.y + o.h / 2 - 3);
+                ctx.fillText('WALL', o.x + o.w / 2, o.y + o.h / 2 + 7);
+                /* flames */
+                ctx.shadowColor = '#f97316'; ctx.shadowBlur = 10;
+                [0.2, 0.5, 0.8].forEach(function (t, k) {
+                    var fx = o.x + o.w * t;
+                    var fl = 6 + Math.sin(frame * 0.18 + k * 1.5) * 3;
+                    ctx.fillStyle = k === 1 ? '#f97316' : '#ef4444';
+                    ctx.beginPath();
+                    ctx.moveTo(fx - 5, o.y);
+                    ctx.quadraticCurveTo(fx, o.y - fl, fx + 5, o.y);
+                    ctx.fill();
+                });
+
+            } else if (o.type === 'error') {
+                ctx.shadowColor = '#f59e0b'; ctx.shadowBlur = 10;
+                rr(o.x, o.y, o.w, o.h, 6);
+                ctx.fillStyle   = '#1c1917'; ctx.fill();
+                ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = 'rgba(245,158,11,0.1)';
+                for (var s2 = 0; s2 < o.h; s2 += 10)
+                    ctx.fillRect(o.x + 2, o.y + s2, o.w - 4, 5);
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 14px monospace';
+                ctx.fillText('404', o.x + o.w / 2, o.y + 19);
+                ctx.fillStyle = '#d97706'; ctx.font = '7px monospace';
+                ctx.fillText('NOT FOUND', o.x + o.w / 2, o.y + 30);
+
+            } else if (o.type === 'lag') {
+                ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 14;
+                ctx.beginPath();
+                ctx.moveTo(o.x + o.w / 2, o.y);
+                ctx.lineTo(o.x + o.w,     o.y + o.h);
+                ctx.lineTo(o.x,            o.y + o.h);
+                ctx.closePath();
+                var lg2 = ctx.createLinearGradient(o.x, o.y, o.x, o.y + o.h);
+                lg2.addColorStop(0, '#6d28d9');
+                lg2.addColorStop(1, 'rgba(109,40,217,0.25)');
+                ctx.fillStyle   = lg2; ctx.fill();
+                ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = '#c084fc'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+                ctx.fillText('LAG!', o.x + o.w / 2, o.y - 5);
+                ctx.strokeStyle = 'rgba(192,132,252,0.55)'; ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(o.x + 8, o.y + o.h * 0.55);
+                for (var z = 0; z < 5; z++)
+                    ctx.lineTo(o.x + 8 + z * 6 + 4, o.y + o.h * 0.55 + (z % 2 === 0 ? -7 : 7));
+                ctx.stroke();
+
+            } else { /* deadpixel */
+                ctx.shadowColor = '#dc2626'; ctx.shadowBlur = 6;
+                var cw = 10, ch = 8;
+                for (var dr = 0; dr < 4; dr++) {
+                    for (var dc = 0; dc < 3; dc++) {
+                        ctx.fillStyle = (dr + dc + Math.floor(frame / 8)) % 3 !== 0 ? '#dc2626' : '#111';
+                        ctx.fillRect(o.x + dc * (cw + 2), o.y + dr * (ch + 2), cw, ch);
+                    }
+                }
+                ctx.fillStyle = '#f87171'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+                ctx.fillText('DEAD',  o.x + o.w / 2, o.y - 5);
+                ctx.fillText('PIXEL', o.x + o.w / 2, o.y + 3);
+            }
+
+            ctx.restore();
+        }
+
+        /* ── Overlays ── */
+        function drawIdleOverlay() {
+            ctx.fillStyle = 'rgba(10,17,34,0.62)';
+            ctx.fillRect(0, 0, W, H);
+            var cx = W / 2, cy = H / 2 - 6;
+            ctx.save();
+            ctx.shadowColor = '#3b82f6'; ctx.shadowBlur = 20;
+            rr(cx - 112, cy - 36, 224, 76, 10);
+            ctx.fillStyle   = 'rgba(15,30,60,0.85)'; ctx.fill();
+            ctx.strokeStyle = 'rgba(96,165,250,0.3)'; ctx.lineWidth = 1.2; ctx.stroke();
+            ctx.restore();
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#60a5fa'; ctx.font = 'bold 15px monospace';
+            ctx.fillText('\uD83D\uDCE1  Wi-Fi Runner', cx, cy - 10);
+            ctx.fillStyle = '#64748b'; ctx.font = '11px monospace';
+            ctx.fillText('SPACE  /  TAP  to start', cx, cy + 11);
+            if (hiScore > 0) {
+                ctx.fillStyle = 'rgba(251,191,36,0.75)'; ctx.font = '10px monospace';
+                ctx.fillText('\uD83C\uDFC6 Best: ' + hiScore, cx, cy + 30);
+            }
+        }
+
+        function drawDeadOverlay() {
+            ctx.fillStyle = 'rgba(10,17,34,0.78)';
+            ctx.fillRect(0, 0, W, H);
+            var cx = W / 2, cy = H / 2 - 8;
+            ctx.textAlign = 'center';
+
+            /* word-wrapped death message */
+            ctx.fillStyle = '#ef4444'; ctx.font = 'bold 11px monospace';
+            var words = deathMsg.split(' '), line = '', lines = [], maxW = W - 44;
+            words.forEach(function (w) {
+                var test = line + (line ? ' ' : '') + w;
+                if (ctx.measureText(test).width > maxW) { lines.push(line); line = w; }
+                else { line = test; }
+            });
+            lines.push(line);
+            lines.forEach(function (l, i) { ctx.fillText(l, cx, cy - 24 + i * 15); });
+
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace';
+            ctx.fillText('Score: ' + Math.floor(score), cx, cy + 8);
+
+            if (newHi) {
+                ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 12px monospace';
+                ctx.fillText('\uD83C\uDFC6  NEW HIGH SCORE!', cx, cy + 26);
+            }
+
+            ctx.fillStyle = '#60a5fa'; ctx.font = '11px monospace';
+            ctx.fillText('SPACE / TAP to play again', cx, cy + (newHi ? 46 : 38));
+        }
+
+        /* ════════════════════════════════════════
+           UPDATE LOGIC
+        ════════════════════════════════════════ */
+        function update() {
+            if (state !== 'playing') return;
+            frame++;
+            score    += speed * 0.056;
+            speed     = BASE_SPD + Math.floor(score / 170) * 0.42;
+            bgScroll += speed * 0.9;
+
+            /* milestones */
+            Object.keys(MILESTONES).forEach(function (m) {
+                var ms = +m;
+                if (!shownMS[ms] && score >= ms) { shownMS[ms] = true; showToast(MILESTONES[m]); }
+            });
+
+            /* player physics */
+            pl.vy += GRAVITY;
+            pl.y  += pl.vy;
+            if (pl.y >= GY) { pl.y = GY; pl.vy = 0; pl.jumps = 0; }
+
+            /* spawn */
+            obsTimer++;
+            if (obsTimer >= obsInt) {
+                obsTimer = 0;
+                obsInt   = Math.max(46, 90 - Math.floor(score / 230) * 6);
+                spawnObs();
+            }
+
+            /* update obstacles */
+            for (var i = obs.length - 1; i >= 0; i--) {
+                obs[i].x -= speed;
+                if (obs[i].x + obs[i].w < -10) { obs.splice(i, 1); continue; }
+                if (hits(obs[i])) { die(); return; }
+            }
+
+            /* sparks */
+            for (var j = sparks.length - 1; j >= 0; j--) {
+                var sp = sparks[j];
+                sp.x += sp.vx; sp.y += sp.vy; sp.vy += 0.28; sp.life -= 2.5;
+                if (sp.life <= 0) sparks.splice(j, 1);
+            }
+
+            /* floats */
+            for (var k = floats.length - 1; k >= 0; k--) {
+                floats[k].y -= 0.75; floats[k].life -= 2;
+                if (floats[k].life <= 0) floats.splice(k, 1);
+            }
+
+            scoreEl.textContent = Math.floor(score);
+        }
+
+        function spawnObs() {
+            var TYPES = ['firewall', 'error', 'lag', 'deadpixel'];
+            var type  = TYPES[Math.floor(Math.random() * TYPES.length)];
+            var w, h;
+            if      (type === 'firewall')  { w = 26; h = 46 + Math.random() * 18; }
+            else if (type === 'error')     { w = 52; h = 40 + (Math.random() < 0.28 ? 20 : 0); }
+            else if (type === 'lag')       { w = 46; h = 54; }
+            else                           { w = 36; h = 44; }
+            obs.push({ type: type, x: W + 28, y: GY - h, w: w, h: h });
+        }
+
+        function hits(o) {
+            var m = 5;
+            return (
+                PX - PW / 2 + m < o.x + o.w - m &&
+                PX + PW / 2 - m > o.x + m &&
+                pl.y - PH  + m  < o.y + o.h - m &&
+                pl.y       - m  > o.y + m
+            );
+        }
+
+        function die() {
+            state = 'dead';
+            newHi = false;
+            var finalScore = Math.floor(score);
+            if (finalScore > hiScore) {
+                hiScore = finalScore;
+                hiEl.textContent = hiScore;
+                newHi = true;
+                saveHiScore(hiScore);   /* persist */
+            }
+            deathMsg = DEATHS[Math.floor(Math.random() * DEATHS.length)];
+            var COLORS = ['#60a5fa','#93c5fd','#fff','#3b82f6','#fbbf24','#f87171'];
+            for (var i = 0; i < 30; i++) {
+                sparks.push({
+                    x: PX, y: pl.y - PH / 2,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: Math.random() * -11,
+                    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+                    size:  3 + Math.random() * 5,
+                    life:  100,
+                });
+            }
+        }
+
+        /* ── Draw ── */
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+            drawBG();
+            drawGround();
+
+            /* sparks */
+            sparks.forEach(function (sp) {
+                ctx.save();
+                ctx.globalAlpha = sp.life / 100;
+                ctx.shadowColor = sp.color; ctx.shadowBlur = 6;
+                ctx.fillStyle   = sp.color;
+                var s = sp.size * (sp.life / 100);
+                ctx.fillRect(sp.x - s / 2, sp.y - s / 2, s, s);
+                ctx.restore();
+            });
+
+            obs.forEach(drawObs);
+
+            /* player (blink when dead) */
+            if (state === 'dead') {
+                if (Math.floor(frame / 4) % 2 === 0) drawPlayer(true);
+            } else {
+                drawPlayer(false);
+            }
+
+            /* floating score labels */
+            floats.forEach(function (f) {
+                ctx.save();
+                ctx.globalAlpha = f.life / 60;
+                ctx.fillStyle   = '#fbbf24';
+                ctx.font        = 'bold 13px monospace';
+                ctx.textAlign   = 'center';
+                ctx.fillText(f.text, f.x, f.y);
+                ctx.restore();
+            });
+
+            if (state === 'idle') drawIdleOverlay();
+            if (state === 'dead') drawDeadOverlay();
+        }
+
+        /* ── Main loop ── */
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
+
+        /* ════════════════════════════════════════
+           CONTROLS
+        ════════════════════════════════════════ */
+        function jump() {
+            if (state === 'idle' || state === 'dead') { start(); return; }
+            if (pl.jumps < 2) {
+                pl.vy    = JUMP_FORCE * (pl.jumps === 1 ? 0.82 : 1);
+                pl.jumps++;
+            }
+        }
+
+        function start() {
+            state    = 'playing';
+            score    = 0;
+            speed    = BASE_SPD;
+            frame    = 0;
+            bgScroll = 0;
+            obs      = [];
+            sparks   = [];
+            floats   = [];
+            obsTimer = 0;
+            obsInt   = 90;
+            shownMS  = {};
+            pl.y     = GY;
+            pl.vy    = 0;
+            pl.jumps = 0;
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.code === 'Space' || e.key === ' ' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                jump();
+            }
+        });
+
+        canvas.addEventListener('pointerdown', function (e) {
+            e.preventDefault();
+            jump();
+        });
+
+        /* ── Boot ── */
+        drawBG();
+        drawGround();
+        drawPlayer(false);
+        drawIdleOverlay();
+        loop();
+
+    }());
+    </script>
+</body>
+</html>
